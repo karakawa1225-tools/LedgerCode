@@ -15,6 +15,7 @@ import {
   type IssuedRow,
   buildCodeId,
   isValidPrefix,
+  serialFromCodeId,
 } from "@/lib/code-system";
 import { deriveUniquePrefixFromLabel } from "@/lib/derive-prefix-from-label";
 import { matchCategoryByKey } from "@/lib/match-category";
@@ -48,6 +49,10 @@ type LedgerContextValue = {
     imported: number;
     failed: { line: number; message: string }[];
   };
+  /** 発行済み1件を削除（一覧・PDF画面など） */
+  removeIssue: (codeId: string) => { ok: true } | { ok: false; message: string };
+  /** 発行済みをすべて削除し、各カテゴリーの連番を先頭に戻す */
+  clearAllIssues: () => void;
 };
 
 const LedgerContext = createContext<LedgerContextValue | null>(null);
@@ -210,6 +215,48 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [data, persist],
   );
 
+  const removeIssue = useCallback(
+    (codeId: string) => {
+      const trimmed = codeId.trim();
+      if (!trimmed) return { ok: false as const, message: "コードが指定されていません。" };
+      const exists = data.issues.some((r) => r.codeId === trimmed);
+      if (!exists) return { ok: false as const, message: "該当する発行がありません。" };
+      const prefix = prefixFromCodeId(trimmed);
+      if (!isValidPrefix(prefix)) {
+        return { ok: false as const, message: "削除できないコード形式です。" };
+      }
+      const nextIssues = data.issues.filter((r) => r.codeId !== trimmed);
+      let maxSerial = 0;
+      for (const row of nextIssues) {
+        if (prefixFromCodeId(row.codeId) !== prefix) continue;
+        const s = serialFromCodeId(row.codeId);
+        if (s != null) maxSerial = Math.max(maxSerial, s);
+      }
+      persist({
+        ...data,
+        issues: nextIssues,
+        nextSerialByPrefix: {
+          ...data.nextSerialByPrefix,
+          [prefix]: maxSerial + 1,
+        },
+      });
+      return { ok: true as const };
+    },
+    [data, persist],
+  );
+
+  const clearAllIssues = useCallback(() => {
+    const nextSerialByPrefix = { ...data.nextSerialByPrefix };
+    for (const c of data.categories) {
+      nextSerialByPrefix[c.prefix] = 1;
+    }
+    persist({
+      ...data,
+      issues: [],
+      nextSerialByPrefix,
+    });
+  }, [data, persist]);
+
   const bulkImportIssues = useCallback(
     (rows: { line: number; categoryKey: string; itemName: string }[]) => {
       const failed: { line: number; message: string }[] = [];
@@ -267,8 +314,20 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       updateCategory,
       removeCategory,
       bulkImportIssues,
+      removeIssue,
+      clearAllIssues,
     }),
-    [data, ready, issueCode, addCategory, updateCategory, removeCategory, bulkImportIssues],
+    [
+      data,
+      ready,
+      issueCode,
+      addCategory,
+      updateCategory,
+      removeCategory,
+      bulkImportIssues,
+      removeIssue,
+      clearAllIssues,
+    ],
   );
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;

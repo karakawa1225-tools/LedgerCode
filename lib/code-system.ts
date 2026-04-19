@@ -46,6 +46,15 @@ export function buildCodeId(prefix: string, serial: number): string {
   return `${prefix}${formatSerial(serial)}${randomNumericString(5)}`;
 }
 
+/** 生成ID（13文字）から連番部分（3桁）を取り出す */
+export function serialFromCodeId(codeId: string): number | null {
+  if (codeId.length !== 13) return null;
+  const serialStr = codeId.slice(5, 8);
+  if (!/^\d{3}$/.test(serialStr)) return null;
+  const n = Number.parseInt(serialStr, 10);
+  return n >= 1 && n <= 999 ? n : null;
+}
+
 /** 追加カテゴリ用：既存と重複しない5文字プレフィックス */
 export function proposeUniquePrefix(taken: Set<string>): string {
   const pool = [

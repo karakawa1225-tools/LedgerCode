@@ -10,7 +10,7 @@ import { IssuedListPdfExport } from "@/components/issued-list-pdf-export";
 import { groupIssuesByCategory } from "@/lib/group-issues-by-category";
 
 export default function IssuedListPage() {
-  const { issues, categories, ready } = useLedger();
+  const { issues, categories, ready, removeIssue, clearAllIssues } = useLedger();
   const [pageIndex, setPageIndex] = useState(0);
 
   const groups = useMemo(
@@ -54,7 +54,28 @@ export default function IssuedListPage() {
             <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               発行済み一覧（カテゴリー別）
             </h2>
-            <IssuedListPdfExport groups={groups} />
+            <div className="flex flex-wrap items-center gap-2">
+              {issues.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      typeof window !== "undefined" &&
+                      window.confirm(
+                        "すべての発行データを削除します（All clear）。この操作は取り消せません。よろしいですか？",
+                      )
+                    ) {
+                      clearAllIssues();
+                      setPageIndex(0);
+                    }
+                  }}
+                  className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 shadow-sm transition hover:bg-red-50 dark:border-red-800 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/30"
+                >
+                  All clear
+                </button>
+              ) : null}
+              <IssuedListPdfExport groups={groups} />
+            </div>
           </div>
           {issues.length > 0 ? (
             <div className="flex flex-col gap-2 rounded-lg border border-dashed border-teal-200/80 bg-teal-50/40 p-3 dark:border-teal-900/50 dark:bg-teal-950/20">
@@ -132,7 +153,16 @@ export default function IssuedListPage() {
                     （{current.rows.length} 件）
                   </span>
                 </h3>
-                <IssuedTable issues={current.rows} showBarcode />
+                <IssuedTable
+                  issues={current.rows}
+                  showBarcode
+                  onDeleteRow={(codeId) => {
+                    const r = removeIssue(codeId);
+                    if (!r.ok && typeof window !== "undefined") {
+                      window.alert(r.message);
+                    }
+                  }}
+                />
               </div>
             ) : null}
           </div>
