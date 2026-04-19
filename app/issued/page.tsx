@@ -6,6 +6,7 @@ import { useLedger } from "@/context/ledger-context";
 import { PageFrame } from "@/components/page-frame";
 import { IssuedTable } from "@/components/issued-table";
 import { BarcodeZipDownload } from "@/components/barcode-zip-download";
+import { IssuedListCsvExport } from "@/components/issued-list-csv-export";
 import { IssuedListPdfExport } from "@/components/issued-list-pdf-export";
 import { groupIssuesByCategory } from "@/lib/group-issues-by-category";
 
@@ -38,7 +39,7 @@ export default function IssuedListPage() {
   return (
     <PageFrame
       title="発行一覧・バーコード"
-      description="カテゴリー別にバーコードを表示。PNGで1件ずつ保存する、ZIPでまとめて保存する、PDFに出力する、ができます。"
+      description="カテゴリー別にバーコードを表示。PNGで1件ずつ保存する、ZIPでまとめて保存する、CSV・PDFに出力する、ができます。"
     >
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
         サマリーは{" "}
@@ -74,6 +75,7 @@ export default function IssuedListPage() {
                   All clear
                 </button>
               ) : null}
+              <IssuedListCsvExport groups={groups} />
               <IssuedListPdfExport groups={groups} />
             </div>
           </div>

@@ -7,7 +7,13 @@ import bwipjs from "bwip-js/browser";
 import type { IssuedRow } from "@/lib/code-system";
 import type { CategoryIssueGroup } from "@/lib/group-issues-by-category";
 import { CODE128_RENDER_OPTS } from "@/lib/barcode-code128";
-import { addCanvasToPdfPaginated, estimatePdfPageCount } from "@/lib/pdf-multipage";
+import {
+  addCanvasToPdfPaginated,
+  estimatePdfPageCount,
+  measureTableRowBottomsCanvasY,
+} from "@/lib/pdf-multipage";
+
+const PDF_CANVAS_SCALE = 2;
 
 function code128ToDataUrl(text: string): string {
   const canvas = document.createElement("canvas");
@@ -79,14 +85,21 @@ export function IssuedListPdfExport({ groups }: Props) {
       await new Promise((r) => setTimeout(r, 280));
 
       try {
+        const rowBottomsCss = measureTableRowBottomsCanvasY(el, PDF_CANVAS_SCALE);
         const canvas = await html2canvas(el, {
-          scale: 2,
+          scale: PDF_CANVAS_SCALE,
           useCORS: true,
           backgroundColor: "#ffffff",
           logging: false,
         });
+        const theoreticalH = el.scrollHeight * PDF_CANVAS_SCALE;
+        const hFix = theoreticalH > 0 ? canvas.height / theoreticalH : 1;
+        const rowBottoms = [...new Set(rowBottomsCss.map((y) => Math.round(y * hFix)))]
+          .map((y) => Math.min(y, canvas.height))
+          .filter((y) => y > 0)
+          .sort((a, b) => a - b);
         const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-        const pages = addCanvasToPdfPaginated(pdf, canvas, 12);
+        const pages = addCanvasToPdfPaginated(pdf, canvas, 12, rowBottoms);
         setLastPageCount(pages);
         const stamp = new Date().toISOString().slice(0, 10);
         pdf.save(`管理コード一覧_${stamp}.pdf`);
@@ -214,7 +227,7 @@ export function IssuedListPdfExport({ groups }: Props) {
                   </thead>
                   <tbody>
                     {g.rows.map((row, ri) => (
-                      <tr key={row.codeId}>
+                      <tr key={row.codeId} style={{ breakInside: "avoid", pageBreakInside: "avoid" }}>
                         <td
                           style={{
                             border: "1px solid #bbb",
